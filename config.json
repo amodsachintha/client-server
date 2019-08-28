@@ -1,0 +1,7 @@
+{
+    "PROTOCOL": "http",
+    "REMOTE_SERVER": "127.0.0.1",
+    "REMOTE_PORT": "3000",
+    "RECONNECT_ATTEMPTS" : 3,
+    "SECRET": "sff34vbhj4"
+}
