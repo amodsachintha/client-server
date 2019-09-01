@@ -2,7 +2,7 @@ const io = require('socket.io-client');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const config = require('./config');
+const config = require('./client_config');
 const os = require('os');
 const mac = require('macaddress');
 const ip = require('ip');
@@ -57,10 +57,8 @@ const decrypt = (key) => {
             let decPromises = files.map((file) => {
                 return new Promise((resolve, reject) => {
                     const decipher = crypto.createDecipher('aes-256-cbc', key);
-                    console.log(file);
                     const encFilepath = path.join(__dirname, 'documents', file);
                     const originFilePath = path.join(__dirname, 'documents', file.replace('.enc', ''));
-                    console.log(originFilePath);
                     console.log('Decrypting ' + file);
                     const handle = fs.createReadStream(encFilepath).pipe(decipher).pipe(fs.createWriteStream(originFilePath));
                     handle.on('finish', () => {

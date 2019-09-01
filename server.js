@@ -7,7 +7,7 @@ const sqlite3 = require('sqlite3').verbose();
 let db = new sqlite3.Database(path.join(__dirname, 'db'));
 
 const initializeWeb = () => {
-    const sql = "CREATE TABLE IF NOT EXISTS devices (id INTEGER PRIMARY KEY AUTOINCREMENT, hostname VARCHAR(255) null, mac varchar(255) null, ip varchar(255) null , secret varchar(255) null, online boolean default false, updated_at timestamp default CURRENT_TIMESTAMP)";
+    const sql = "CREATE TABLE IF NOT EXISTS devices (id INTEGER PRIMARY KEY AUTOINCREMENT, hostname VARCHAR(255) null, mac varchar(255) null, ip varchar(255) null , secret varchar(255) null, online boolean default false, authorized boolean default false , denied boolean default false, updated_at timestamp default CURRENT_TIMESTAMP)";
     return new Promise((resolve, reject) => {
         db.run(sql, (error) => {
             if (error) reject(error);
@@ -52,19 +52,24 @@ const deviceIsOnline = id => {
 };
 const getAllDevices = () => {
     return new Promise((resolve, reject) => {
-        const sql = "SELECT * FROM devices";
+        const sql = "SELECT * FROM devices where (authorized = true or authorized = false) and denied = false";
         db.all(sql, (err, result) => {
             if (err) reject(err);
             resolve(result);
         })
     });
 };
+const setDeviceParams = (authorized, denied, id) => {
+    const setAuthorizedSql = "UPDATE devices set authorized = ? where id = ?";
+    const setDeniedSql = "UPDATE devices set denied = ? where id = ?";
+    db.run(setAuthorizedSql, [authorized, id]);
+    db.run(setDeniedSql, [denied, id]);
+};
 
 webApp.use(express.json());
 webApp.use(express.static(path.join(__dirname, 'public')));
 
 let socketMap = [];
-
 
 io.on('connection', function (socket) {
     let deviceId = null;
@@ -111,7 +116,7 @@ io.on('connection', function (socket) {
     });
 });
 const sendPing = (socket, heartbeatInterval) => {
-    let intervalRef = setInterval(() => {
+    return setInterval(() => {
         socket.emit('check_alive', {key: genRandomKey()});
     }, heartbeatInterval)
 };
@@ -119,10 +124,12 @@ const genRandomKey = () => {
     return Math.random().toString(36).substr(2);
 };
 
-
 webApp.get('/api/devices', (req, res) => {
     getAllDevices().then(devices => {
-        res.status(200).json(devices);
+        res.status(200).json({
+            devices: devices,
+            count: devices.length
+        });
     }).catch(e => {
         res.status(500).json({status: 'fail'});
     })
@@ -145,12 +152,29 @@ webApp.post('/api/devices/wipe', (req, res) => {
             console.error(e);
             return res.status(422).json({status: 'fail', msg: 'Requested device is not online!'});
         });
-    }else{
+    } else {
         return res.status(422).json({status: 'fail', msg: `Device with ID: ${deviceID} not found!`});
     }
 
 });
-
+webApp.post('/api/devices/authorize', (req, res) => {
+    let deviceID = req.body.deviceID;
+    if (deviceID) {
+        setDeviceParams(true, false, deviceID);
+        res.status(200).json({status: 'success'});
+    } else {
+        res.status(422).json({status: 'fail'});
+    }
+});
+webApp.post('/api/devices/reject', (req, res) => {
+    let deviceID = req.body.deviceID;
+    if (deviceID) {
+        setDeviceParams(false, true, deviceID);
+        res.status(200).json({status: 'success'});
+    } else {
+        res.status(422).json({status: 'fail'});
+    }
+});
 
 app.listen(3000, () => {
     console.debug('Listening on port 3000')
@@ -161,5 +185,4 @@ webApp.listen(4000, () => {
     }).catch(e => {
         console.error(e);
     })
-
 });

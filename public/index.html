@@ -6,16 +6,17 @@
     <script src="semantic/jquery-3.4.1.min.js"></script>
     <script src="semantic/semantic.min.js"></script>
     <script src="semantic/axios.min.js"></script>
-    <title>Title</title>
+    <title>Device Log</title>
 </head>
 <body style="margin-top: 4em">
-<h2 class="ui centered header">Devices</h2>
+<h1 class="ui centered header">WebSocket Server</h1>
+<h3 class="ui centered header" id="deviceCountHeader"></h3>
 <div class="ui container" style="margin-top: 3em;">
     <div class="ui grid">
         <div class="column">
             <div id="placeholder" class="ui three column stackable grid">
                 <div class="column">
-                    <div class="ui raised segment">
+                    <div class="ui basic segment">
                         <div class="ui placeholder">
                             <div class="image header">
                                 <div class="line"></div>
@@ -29,7 +30,7 @@
                     </div>
                 </div>
                 <div class="column">
-                    <div class="ui raised segment">
+                    <div class="ui basic segment">
                         <div class="ui placeholder">
                             <div class="image header">
                                 <div class="line"></div>
@@ -43,7 +44,7 @@
                     </div>
                 </div>
                 <div class="column">
-                    <div class="ui raised segment">
+                    <div class="ui basic segment">
                         <div class="ui placeholder">
                             <div class="image header">
                                 <div class="line"></div>
@@ -57,7 +58,7 @@
                     </div>
                 </div>
                 <div class="column">
-                    <div class="ui raised segment">
+                    <div class="ui basic segment">
                         <div class="ui placeholder">
                             <div class="image header">
                                 <div class="line"></div>
@@ -71,7 +72,7 @@
                     </div>
                 </div>
                 <div class="column">
-                    <div class="ui raised segment">
+                    <div class="ui basic segment">
                         <div class="ui placeholder">
                             <div class="image header">
                                 <div class="line"></div>
@@ -85,7 +86,7 @@
                     </div>
                 </div>
                 <div class="column">
-                    <div class="ui raised segment">
+                    <div class="ui basic segment">
                         <div class="ui placeholder">
                             <div class="image header">
                                 <div class="line"></div>
@@ -99,11 +100,10 @@
                     </div>
                 </div>
             </div>
-            <div class="ui three stackable raised cards" id="devicesCardDiv">
+            <div class="ui three stackable cards" id="devicesCardDiv">
             </div>
         </div>
     </div>
-
 </div>
 
 
@@ -112,14 +112,20 @@
         axios.get('/api/devices').then(res => {
             $('#devicesCardDiv').html('');
             $('#placeholder').html('');
-            res.data.forEach(device => {
-                $('#devicesCardDiv').append(`<div class="card"><div class="content"><div class="header"><span class="ui empty mini ${device.online ? 'green' : 'red'} circular label"></span> ${device.hostname}</div><div class="description">${device.ip}<br><small>${device.mac}</small><br><small>${device.updated_at}</small></div></div><button onclick="sendWipeRequest(${device.id})" class="ui bottom attached red button"><i class="trash icon"></i>Wipe Data</button></div>`);
+            $('#deviceCountHeader').html(`Devices Associated with Server: <span class="ui blue label">${res.data.count}</span>`);
+            res.data.devices.forEach(device => {
+                let actionButton = null;
+                if (device.authorized) {
+                    actionButton = `<button onclick="sendWipeRequest(${device.id})" class="ui bottom attached orange button"><i class="trash icon"></i>Wipe Data</button>`;
+                } else {
+                    actionButton = `<div class="ui buttons"><button class="ui red button" onclick="sendDeny(${device.id})">Deny Device</button><div class="or"></div><button class="ui positive button" onclick="sendAuthorize(${device.id})">Authorize</button></div>`;
+                }
+                $('#devicesCardDiv').append(`<div class="card"><div class="content"><div class="header"><span class="ui empty mini ${device.online ? 'green' : 'red'} circular label"></span> ${device.hostname}</div><div class="description">IP Addr.: ${device.ip}<br><small>MAC: ${device.mac}</small><br><small>${device.updated_at}</small></div></div>${actionButton}</div>`);
             })
         }).catch(e => {
             console.error(e.response.data);
         })
-    }, 5000);
-
+    }, 1000);
 
     function sendWipeRequest(deviceID) {
         if (confirm('Are you sure?')) {
@@ -133,6 +139,28 @@
                     alert(e.toString());
                 }
             })
+        }
+    }
+
+    function sendAuthorize(deviceID) {
+        if (confirm('Are you sure to authorize device?')) {
+            axios.post('/api/devices/authorize', {deviceID: deviceID}).then(res => {
+                alert('Device Authorized!');
+            }).catch(e => {
+                alert('Unspecified error occurred!');
+                console.error(e);
+            });
+        }
+    }
+
+    function sendDeny(deviceID) {
+        if (confirm('Are you sure to reject device?')) {
+            axios.post('/api/devices/reject', {deviceID: deviceID}).then(res => {
+                alert('Device Rejected!');
+            }).catch(e => {
+                alert('Unspecified error occurred!');
+                console.error(e);
+            });
         }
     }
 </script>
