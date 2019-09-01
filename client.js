@@ -142,7 +142,6 @@ socket.on('WIPE_REQUEST', data => {
     });
 });
 
-
 socket.on('check_alive', data => {
     console.log('RECV: HEARTBEAT: key: ' + data.key);
     currentKey = data.key;
