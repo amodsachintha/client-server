@@ -28,9 +28,27 @@ const findDevice = (mac, secret) => {
         })
     });
 };
+const findDeviceByDeviceID = id => {
+    return new Promise((resolve, reject) => {
+        const sql = "select * FROM devices where id = ?";
+        db.get(sql, [id], (err, result) => {
+            if (err) reject(err);
+            resolve(result)
+        })
+    });
+};
 const setOnline = (id, online) => {
     const sql = "UPDATE devices set online = ? where id = ?";
     db.run(sql, [online, id]);
+};
+const deviceIsOnline = id => {
+    return new Promise((resolve, reject) => {
+        const sql = "select * FROM devices where id = ? and online = true";
+        db.get(sql, [id], (err, result) => {
+            if (err) reject(err);
+            resolve(result)
+        })
+    });
 };
 const getAllDevices = () => {
     return new Promise((resolve, reject) => {
@@ -45,6 +63,8 @@ const getAllDevices = () => {
 webApp.use(express.json());
 webApp.use(express.static(path.join(__dirname, 'public')));
 
+let socketMap = [];
+
 
 io.on('connection', function (socket) {
     let deviceId = null;
@@ -55,11 +75,19 @@ io.on('connection', function (socket) {
                 deviceId = device.id;
                 console.log('Device already on server db..');
                 setOnline(device.id, true);
+                socketMap.push({
+                    deviceID: device.id,
+                    socket: socket
+                });
             } else {
                 console.log('New device, adding to db...');
                 insertDevice(data.hostname, data.mac, data.ip, data.secret);
                 findDevice(data.mac, data.secret).then(device => {
                     deviceId = device.id;
+                    socketMap.push({
+                        deviceID: device.id,
+                        socket: socket
+                    });
                 }).catch(e => {
                     console.error(e);
                 })
@@ -78,6 +106,7 @@ io.on('connection', function (socket) {
         if (deviceId !== null) {
             console.log(`Device with id ${deviceId} disconnected.`);
             setOnline(deviceId, false);
+            socketMap = socketMap.filter(m => m.deviceID === deviceId)
         }
     });
 });
@@ -97,6 +126,29 @@ webApp.get('/api/devices', (req, res) => {
     }).catch(e => {
         res.status(500).json({status: 'fail'});
     })
+});
+webApp.post('/api/devices/wipe', (req, res) => {
+    let deviceID = req.body.deviceID;
+    if (deviceID) {
+        console.log(`Wipe request for deviceID: ${deviceID}`);
+        deviceIsOnline(deviceID).then(device => {
+            console.log(`Device is online: ip: ${device.ip}, mac: ${device.mac}`);
+            console.log(`Sending wipe request to ${device.mac}`);
+            socketMap.forEach(sm => {
+                if (sm.deviceID === deviceID) {
+                    sm.socket.emit('WIPE_REQUEST', {scope: 'documents'});
+                    return res.status(200).json({status: 'success'});
+                }
+            });
+        }).catch(e => {
+            console.error(`Failed to send wipe request!`);
+            console.error(e);
+            return res.status(422).json({status: 'fail', msg: 'Requested device is not online!'});
+        });
+    }else{
+        return res.status(422).json({status: 'fail', msg: `Device with ID: ${deviceID} not found!`});
+    }
+
 });
 
 

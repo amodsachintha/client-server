@@ -123,10 +123,15 @@
 
     function sendWipeRequest(deviceID) {
         if (confirm('Are you sure?')) {
-            axios.post('/api/devices/wipe', {deviceID}).then(res => {
-
+            axios.post('/api/devices/wipe', {deviceID: deviceID}).then(res => {
+                console.log(res.data);
+                alert('Device Wipe Request sent successfully!');
             }).catch(e => {
-                alert(e.toString());
+                if (e.response.data.msg) {
+                    alert(e.response.data.msg);
+                } else {
+                    alert(e.toString());
+                }
             })
         }
     }
