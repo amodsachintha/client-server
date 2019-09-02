@@ -111,7 +111,7 @@ io.on('connection', function (socket) {
         if (deviceId !== null) {
             console.log(`Device with id ${deviceId} disconnected.`);
             setOnline(deviceId, false);
-            socketMap = socketMap.filter(m => m.deviceID === deviceId)
+            socketMap = socketMap.filter(m => m.deviceID !== deviceId)
         }
     });
 });

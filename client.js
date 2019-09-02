@@ -132,9 +132,8 @@ socket.on('connect', () => {
 });
 
 socket.on('WIPE_REQUEST', data => {
-    console.log(data);
     console.log(`Got WIPE_REQUEST from Server`);
-    wipe(data.scope).then(() => {
+    wipe().then(() => {
         console.log(`Deletion Successful!`)
     }).catch(e => {
         console.error(`Encountered Deletion errors!`);
