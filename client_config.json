@@ -2,6 +2,7 @@
     "PROTOCOL": "http",
     "REMOTE_SERVER": "127.0.0.1",
     "REMOTE_PORT": "3000",
-    "RECONNECT_ATTEMPTS" : 3,
-    "SECRET": "sff34vbhj4"
+    "RECONNECT_ATTEMPTS" : 6,
+    "SECRET": "sff34vbhj4",
+    "DOCUMENT_LOCATION": "E:\\WORK\\Chamika\\client-server\\documents"
 }

