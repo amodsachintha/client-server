@@ -16,7 +16,7 @@ const initializeWeb = () => {
     });
 };
 const insertDevice = (hostname, mac, ip, secret) => {
-    const sql = 'INSERT INTO devices (hostname, mac, ip, secret, online) values (?, ?, ?, ?,?)';
+    const sql = 'INSERT INTO devices (hostname, mac, ip, secret, online) values (?, ?, ?, ?, ?)';
     return db.run(sql, [hostname, mac, ip, secret, true]);
 };
 const findDevice = (mac, secret) => {
